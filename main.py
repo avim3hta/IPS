@@ -3,9 +3,10 @@ import sys
 import time
 import logging
 import subprocess
-import yaml
 from datetime import datetime
 from pathlib import Path
+import threading
+import queue
 
 # Configure logging
 logger = logging.getLogger('IPS')
@@ -13,7 +14,7 @@ logger.setLevel(logging.INFO)
 
 # Create handlers
 console_handler = logging.StreamHandler(sys.stdout)
-file_handler = logging.FileHandler('ips.log')
+file_handler = logging.FileHandler('logs/ips.log')
 
 # Create formatters and add it to handlers
 log_format = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
@@ -32,7 +33,9 @@ class IPS:
         self.snort_config = self.config_dir / 'snort.lua'
         self.local_rules = self.rules_dir / 'local.rules'
         self.alert_file = Path('alert_fast.txt')
-        self.firewall_config = self.config_dir / 'firewall.yaml'
+        self.alert_queue = queue.Queue()
+        self.blocked_ips = set()
+        self.packet_count = 0
         
         # Create necessary directories
         self._create_directories()
@@ -42,9 +45,6 @@ class IPS:
         
         # Initialize rules
         self._init_rules()
-        
-        # Initialize firewall configuration
-        self._init_firewall_config()
 
     def _create_directories(self):
         """Create necessary directories if they don't exist."""
@@ -57,30 +57,21 @@ class IPS:
         if not self.snort_config.exists():
             config_content = '''-- Snort 3.0 configuration
 
--- Setup the network addresses you are protecting
+-- Network variables
 HOME_NET = 'any'
 EXTERNAL_NET = 'any'
 
--- Set up the rule paths
-RULE_PATH = '../rules'
-
--- Configure DAQ for inline mode
+-- Basic configuration
 daq = {
     module_dirs = {
-        '/usr/local/lib/daq',
+        '/usr/local/lib/daq'
     },
     modules = {
         {
-            name = 'pcap',
-            mode = 'inline'
+            name = 'afpacket',
+            mode = 'passive'
         }
     }
-}
-
--- Configure output
-alert_fast = {
-    file = true,
-    packet = false
 }
 
 -- Configure alerts
@@ -93,11 +84,8 @@ alerts = {
     rate_filter_memcap = 1048576
 }
 
--- Configure inline mode
-inline = {
-    mode = 'tap',
-    interface = 'wlo1'
-}
+-- Define output formats
+alert_fast = { }
 
 -- Include rules
 include = 'rules/local.rules'
@@ -109,133 +97,181 @@ include = 'rules/local.rules'
         """Initialize Snort rules file."""
         if not self.local_rules.exists():
             rules_content = '''# Local Snort rules
-drop tcp any any -> any any (msg:"Blocked TCP Connection"; sid:1000001; rev:1;)
-drop udp any any -> any any (msg:"Blocked UDP Connection"; sid:1000002; rev:1;)
-drop icmp any any -> any any (msg:"Blocked ICMP Ping"; itype:8; sid:1000003; rev:1;)
+
+# Basic protocol detection
+alert tcp any any -> any any (msg:"TCP Connection Detected"; sid:1000001; rev:1;)
+alert udp any any -> any any (msg:"UDP Connection Detected"; sid:1000002; rev:1;)
+alert icmp any any -> any any (msg:"ICMP Packet Detected"; sid:1000003; rev:1;)
+
+# Port scan detection
+alert tcp any any -> any any (msg:"Port Scan Detected"; flags:S; sid:1000004; rev:1;)
+alert tcp any any -> any any (msg:"Stealth Scan Detected"; flags:SF,R; sid:1000005; rev:1;)
+
+# Service detection
+alert tcp any any -> any 22 (msg:"SSH Connection Attempt"; content:"SSH"; sid:1000006; rev:1;)
+alert tcp any any -> any 80 (msg:"HTTP Connection"; content:"HTTP/1.1"; sid:1000007; rev:1;)
+alert tcp any any -> any 21 (msg:"FTP Connection Attempt"; content:"FTP"; sid:1000008; rev:1;)
+
+# OS detection
+alert tcp any any -> any any (msg:"OS Detection Attempt"; content:"TTL"; sid:1000009; rev:1;)
+alert tcp any any -> any any (msg:"OS Detection Attempt"; content:"Window"; sid:1000010; rev:1;)
+
+# Protocol probes
+alert tcp any any -> any 80 (msg:"HTTP CONNECT Method"; content:"CONNECT"; sid:1000011; rev:1;)
+alert tcp any any -> any 80 (msg:"HTTP OPTIONS Method"; content:"OPTIONS"; sid:1000012; rev:1;)
 '''
             self.local_rules.write_text(rules_content)
             logger.info(f"Created local rules file: {self.local_rules}")
 
-    def _init_firewall_config(self):
-        """Initialize firewall configuration file."""
-        if not self.firewall_config.exists():
-            config_content = {
-                'rules': [
-                    {
-                        'id': 1,
-                        'action': 'drop',
-                        'protocol': 'tcp',
-                        'source_ip': 'any',
-                        'destination_ip': 'any',
-                        'priority': 100,
-                        'description': 'Block suspicious TCP connections',
-                        'enabled': True
-                    }
-                ]
-            }
-            with open(self.firewall_config, 'w') as f:
-                yaml.dump(config_content, f, default_flow_style=False)
-            logger.info(f"Created firewall configuration file: {self.firewall_config}")
-
-    def update_firewall_rules(self, alert):
-        """Update firewall rules based on Snort alerts."""
+    def setup_firewall(self):
+        """Set up initial firewall rules"""
         try:
-            # Parse alert to extract relevant information
-            # This is a simple example - you might want to enhance the parsing
-            if "Blocked" in alert:
-                logger.info(f"Updating firewall rules based on alert: {alert}")
-                # Add the IP to the IPS_BLOCK chain
-                subprocess.run(['sudo', 'iptables', '-A', 'IPS_BLOCK', '-j', 'DROP'], check=True)
-        except Exception as e:
-            logger.error(f"Error updating firewall rules: {e}")
+            # Clear existing rules
+            subprocess.run(['sudo', 'iptables', '-F'], check=True)
+            subprocess.run(['sudo', 'iptables', '-X'], check=True)
+            subprocess.run(['sudo', 'iptables', '-t', 'nat', '-F'], check=True)
+            subprocess.run(['sudo', 'iptables', '-t', 'nat', '-X'], check=True)
+            
+            # Set default policies
+            subprocess.run(['sudo', 'iptables', '-P', 'INPUT', 'ACCEPT'], check=True)
+            subprocess.run(['sudo', 'iptables', '-P', 'FORWARD', 'ACCEPT'], check=True)
+            subprocess.run(['sudo', 'iptables', '-P', 'OUTPUT', 'ACCEPT'], check=True)
+            
+            logger.info("Firewall initialized with default rules")
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Error setting up firewall: {e}")
 
-    def start_snort(self):
-        """Start Snort in inline mode."""
+    def add_firewall_rule(self, ip):
+        """Add a firewall rule to block suspicious IP"""
+        if ip in self.blocked_ips:
+            return
+
         try:
-            # Stop any existing Snort processes
-            subprocess.run(['sudo', 'pkill', 'snort'], check=False)
+            # Add rule to block IP
+            subprocess.run(['sudo', 'iptables', '-A', 'INPUT', '-s', ip, '-j', 'DROP'], check=True)
+            subprocess.run(['sudo', 'iptables', '-A', 'FORWARD', '-s', ip, '-j', 'DROP'], check=True)
             
-            # Start Snort
-            cmd = [
-                'sudo', 'snort',
-                '-c', str(self.snort_config),
-                '-i', 'wlo1',
-                '--warn-all'
-            ]
+            self.blocked_ips.add(ip)
+            logger.info(f"Added firewall rules for IP: {ip}")
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Error adding firewall rule for IP {ip}: {e}")
+
+    def remove_firewall_rule(self, ip):
+        """Remove firewall rules for an IP"""
+        if ip not in self.blocked_ips:
+            return
+
+        try:
+            # Remove all rules for the IP
+            subprocess.run(['sudo', 'iptables', '-D', 'INPUT', '-s', ip, '-j', 'DROP'], check=True)
+            subprocess.run(['sudo', 'iptables', '-D', 'FORWARD', '-s', ip, '-j', 'DROP'], check=True)
             
-            logger.info("Starting Snort...")
-            logger.info(f"Command: {' '.join(cmd)}")
-            
-            process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                universal_newlines=True,
-                bufsize=1  # Line buffered
-            )
-            
-            # Monitor Snort output
-            while True:
-                output = process.stdout.readline()
-                if output:
-                    logger.info(output.strip())
-                error = process.stderr.readline()
-                if error:
-                    logger.error(error.strip())
-                
-                # Check if process has terminated
-                if process.poll() is not None:
-                    remaining_out, remaining_err = process.communicate()
-                    if remaining_out:
-                        logger.info(remaining_out.strip())
-                    if remaining_err:
-                        logger.error(remaining_err.strip())
+            self.blocked_ips.remove(ip)
+            logger.info(f"Removed firewall rules for IP: {ip}")
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Error removing firewall rule for IP {ip}: {e}")
+
+    def process_alerts(self):
+        """Process alerts and update firewall rules"""
+        while True:
+            try:
+                alert = self.alert_queue.get()
+                if alert is None:
                     break
-                
-                time.sleep(0.1)
-            
-            if process.returncode != 0:
-                logger.error(f"Snort exited with code {process.returncode}")
-                raise Exception(f"Snort failed to start (exit code {process.returncode})")
-            
-        except Exception as e:
-            logger.error(f"Error starting Snort: {e}")
-            raise
+
+                # Parse alert to get IP and type
+                if '->' in alert:
+                    parts = alert.split('->')
+                    ip = parts[0].strip().split()[-1]
+                    alert_type = None
+
+                    # Determine alert type
+                    if "Port Scan" in alert:
+                        alert_type = "port_scan"
+                    elif "Stealth Scan" in alert:
+                        alert_type = "stealth_scan"
+                    elif "Service Version Scan" in alert:
+                        alert_type = "version_scan"
+                    elif "OS Detection" in alert:
+                        alert_type = "os_detection"
+                    elif "Protocol Probe" in alert:
+                        alert_type = "protocol_probe"
+                    elif "TCP Connection" in alert:
+                        alert_type = "tcp_connection"
+                    elif "UDP Connection" in alert:
+                        alert_type = "udp_connection"
+                    elif "ICMP Packet" in alert:
+                        alert_type = "icmp_packet"
+                    elif "HTTP" in alert:
+                        alert_type = "http_connection"
+                    elif "FTP" in alert:
+                        alert_type = "ftp_connection"
+                    elif "SSH" in alert:
+                        alert_type = "ssh_connection"
+
+                    if alert_type:
+                        self.add_firewall_rule(ip)
+                        logger.info(f"Processing {alert_type} alert for IP: {ip}")
+                        self.packet_count += 1
+
+            except Exception as e:
+                logger.error(f"Error processing alert: {e}")
+            finally:
+                self.alert_queue.task_done()
 
     def monitor_alerts(self):
-        """Monitor Snort alerts in real-time and update firewall rules."""
-        try:
-            while True:
+        """Monitor alert_fast.txt for new alerts"""
+        processed_alerts = set()
+
+        while True:
+            try:
                 if self.alert_file.exists():
                     with open(self.alert_file, 'r') as f:
-                        alerts = f.readlines()
-                        for alert in alerts:
-                            logger.warning(f"Snort Alert: {alert.strip()}")
-                            self.update_firewall_rules(alert.strip())
-                    # Clear the alert file after reading
-                    open(self.alert_file, 'w').close()
-                time.sleep(1)
-        except Exception as e:
-            logger.error(f"Error monitoring alerts: {e}")
-            raise
+                        new_alerts = f.readlines()
+                        for alert in new_alerts:
+                            if alert not in processed_alerts:
+                                processed_alerts.add(alert)
+                                self.alert_queue.put(alert)
+                                logger.info(f"New alert detected: {alert.strip()}")
+                                self.packet_count += 1
+            except Exception as e:
+                logger.error(f"Error monitoring alerts: {e}")
+            time.sleep(1)
 
-    def run(self):
-        """Main method to run the IPS."""
+    def start(self):
+        """Start the IPS"""
+        logger.info("Starting IPS...")
+        
+        # Start Snort in passive mode
         try:
-            logger.info("Starting IPS...")
-            self.start_snort()
-            self.monitor_alerts()
+            snort_cmd = ['sudo', 'snort', '-c', str(self.snort_config), '-i', 'wlo1', '--warn-all']
+            logger.info("Starting Snort...")
+            logger.info(f"Command: {' '.join(snort_cmd)}")
+            
+            # Start alert processing thread
+            alert_processor = threading.Thread(target=self.process_alerts, daemon=True)
+            alert_processor.start()
+            
+            # Start alert monitoring thread
+            alert_monitor = threading.Thread(target=self.monitor_alerts, daemon=True)
+            alert_monitor.start()
+            
+            # Run Snort
+            subprocess.run(snort_cmd)
+            
         except KeyboardInterrupt:
             logger.info("Stopping IPS...")
-            subprocess.run(['sudo', 'pkill', 'snort'], check=False)
+            self.alert_queue.put(None)
+            alert_processor.join()
+            alert_monitor.join()
         except Exception as e:
-            logger.error(f"Error in IPS: {e}")
-            raise
+            logger.error(f"Error starting IPS: {e}")
 
 def main():
     try:
         ips = IPS()
-        ips.run()
+        ips.setup_firewall()
+        ips.start()
         return 0
     except Exception as e:
         logger.error(f"Fatal error: {e}")

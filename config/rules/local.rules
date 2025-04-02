@@ -55,4 +55,77 @@ alert tcp any any -> $HOME_NET $SSH_PORTS ( \
     threshold:type both,track by_src,count 5,seconds 60; \
     sid:1000006; \
     rev:1; \
-) 
+)
+
+# Nmap SYN scan detection
+drop tcp any any -> any any (msg:"NMAP SYN scan detected"; flow:stateless; flags:S; threshold:type both,track by_src,count 10,seconds 60; sid:1000010; rev:1;)
+
+# Nmap TCP connect scan
+drop tcp any any -> any any (msg:"NMAP TCP connect scan detected"; flow:established; flags:S; threshold:type both,track by_src,count 15,seconds 60; sid:1000011; rev:1;)
+
+# Nmap OS fingerprinting attempt
+drop tcp any any -> any any (msg:"NMAP OS fingerprinting attempt"; flow:stateless; flags:SF,FUP; sid:1000012; rev:1;)
+
+# Nmap version scan detection
+drop tcp any any -> any any (msg:"NMAP version scan detected"; flow:to_server; flags:A; window:1024; sid:1000013; rev:1;)
+
+# Nmap NULL scan
+drop tcp any any -> any any (msg:"NMAP NULL scan detected"; flags:0; sid:1000014; rev:1;)
+
+# Nmap FIN scan
+drop tcp any any -> any any (msg:"NMAP FIN scan detected"; flags:F; sid:1000015; rev:1;)
+
+# Nmap XMAS scan
+drop tcp any any -> any any (msg:"NMAP XMAS scan detected"; flags:FPU; sid:1000016; rev:1;)
+
+# Protocol-specific probes
+drop tcp any any -> any any (msg:"SIP Protocol Probe"; content:"SIP/2.0"; sid:1000020; rev:1;)
+drop tcp any any -> any any (msg:"JRMI Protocol Probe"; content:"JRMI"; sid:1000021; rev:1;)
+drop tcp any any -> any any (msg:"MSSQL Protocol Probe"; content:"MSSQLServer"; sid:1000022; rev:1;)
+drop tcp any any -> any any (msg:"GIOP Protocol Probe"; content:"GIOP"; sid:1000023; rev:1;)
+drop tcp any any -> any any (msg:"SSL/TLS Protocol Probe"; content:"\x16\x03"; sid:1000024; rev:1;)
+
+# Bad request patterns
+drop tcp any any -> any any (msg:"Malformed HTTP Request"; content:"Bad request syntax"; sid:1000025; rev:1;)
+drop tcp any any -> any any (msg:"Bad HTTP Version"; content:"Bad request version"; sid:1000026; rev:1;)
+
+# Service detection probes
+drop tcp any any -> any any (msg:"Service Detection Probe"; content:"nice ports"; sid:1000027; rev:1;)
+drop tcp any any -> any any (msg:"Service Detection Probe"; content:"Trinity.txt.bak"; sid:1000028; rev:1;)
+
+# Binary protocol probes
+drop tcp any any -> any any (msg:"Binary Protocol Probe"; content:"\x00\x00\x00"; sid:1000029; rev:1;)
+drop tcp any any -> any any (msg:"Binary Protocol Probe"; content:"\x03\x00"; sid:1000030; rev:1;)
+
+# Basic Rules for TCP, UDP, and ICMP
+alert tcp any any -> any any (msg:"Blocked TCP Traffic"; sid:1000001;)
+alert udp any any -> any any (msg:"Blocked UDP Traffic"; sid:1000002;)
+alert icmp any any -> any any (msg:"Blocked ICMP Traffic"; sid:1000003;)
+
+# Scan Detection and Blocking Rules
+alert tcp any any -> any any (msg:"Stealth SYN Scan Detected"; flags:S; content:"|00 00 00 00 00 00 00 00|"; sid:1000004;)
+alert tcp any any -> any any (msg:"Service Version Scan Detected"; content:"\x00\x00\x00\x00\x00\x00\x00\x00"; sid:1000005;)
+alert tcp any any -> any any (msg:"OS Detection Scan Detected"; content:"\x00\x00\x00\x00\x00\x00\x00\x00"; sid:1000006;)
+alert tcp any any -> any any (msg:"Aggressive Scan Detected"; flags:S; content:"\x00\x00\x00\x00\x00\x00\x00\x00"; sid:1000007;)
+
+# Protocol Probes - Block all suspicious probes
+alert tcp any any -> any any (msg:"SIP Protocol Probe"; content:"SIP/2.0"; sid:1000020;)
+alert tcp any any -> any any (msg:"JRMI Protocol Probe"; content:"JRMI"; sid:1000021;)
+alert tcp any any -> any any (msg:"MSSQL Protocol Probe"; content:"MSSQLServer"; sid:1000022;)
+alert tcp any any -> any any (msg:"GIOP Protocol Probe"; content:"GIOP"; sid:1000023;)
+alert tcp any any -> any any (msg:"SSL/TLS Protocol Probe"; content:"\x16\x03"; sid:1000024;)
+alert tcp any any -> any any (msg:"Malformed HTTP Request"; content:"\x00\x00\x00\x00\x00\x00\x00\x00"; sid:1000025;)
+alert tcp any any -> any any (msg:"Bad HTTP Version"; content:"\x00\x00\x00\x00\x00\x00\x00\x00"; sid:1000026;)
+alert tcp any any -> any any (msg:"Service Detection Probe"; content:"nice ports"; sid:1000027;)
+alert tcp any any -> any any (msg:"Service Detection Probe"; content:"Trinity.txt.bak"; sid:1000028;)
+alert tcp any any -> any any (msg:"Binary Protocol Probe"; content:"\x00\x00\x00\x00\x00\x00\x00\x00"; sid:1000029;)
+alert tcp any any -> any any (msg:"Binary Protocol Probe"; content:"\x01\x00\x00\x00\x00\x00\x00\x00"; sid:1000030;)
+
+# Additional Scan Detection Rules
+alert tcp any any -> any any (msg:"NMAP SYN scan detected"; flow:stateless; flags:S; threshold:type both,track by_src,count 5,seconds 60; sid:1000010;)
+alert tcp any any -> any any (msg:"NMAP TCP connect scan detected"; flow:established; flags:S; threshold:type both,track by_src,count 5,seconds 60; sid:1000011;)
+alert tcp any any -> any any (msg:"NMAP OS fingerprinting attempt"; flow:stateless; flags:SF,FUP; sid:1000012;)
+alert tcp any any -> any any (msg:"NMAP version scan detected"; flow:to_server; flags:A; window:1024; sid:1000013;)
+alert tcp any any -> any any (msg:"NMAP NULL scan detected"; flags:0; sid:1000014;)
+alert tcp any any -> any any (msg:"NMAP FIN scan detected"; flags:F; sid:1000015;)
+alert tcp any any -> any any (msg:"NMAP XMAS scan detected"; flags:FPU; sid:1000016;) 

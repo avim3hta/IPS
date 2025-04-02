@@ -1,29 +1,20 @@
 -- Snort 3.0 configuration
 
--- Setup the network addresses you are protecting
+-- Network variables
 HOME_NET = 'any'
 EXTERNAL_NET = 'any'
 
--- Set up the rule paths
-RULE_PATH = '../rules'
-
--- Configure DAQ for inline mode
+-- Basic configuration
 daq = {
     module_dirs = {
-        '/usr/local/lib/daq',
+        '/usr/local/lib/daq'
     },
     modules = {
         {
-            name = 'pcap',
-            mode = 'inline'
+            name = 'afpacket',
+            mode = 'passive'
         }
     }
-}
-
--- Configure output
-alert_fast = {
-    file = true,
-    packet = false
 }
 
 -- Configure alerts
@@ -36,11 +27,8 @@ alerts = {
     rate_filter_memcap = 1048576
 }
 
--- Configure inline mode
-inline = {
-    mode = 'tap',
-    interface = 'wlo1'
-}
+-- Define output formats
+alert_fast = { }
 
 -- Include rules
 include = 'rules/local.rules' 
