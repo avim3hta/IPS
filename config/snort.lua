@@ -29,8 +29,7 @@ alerts = {
 
 -- Define output formats
 alert_fast = { 
-    file = true,
-    filename = 'alert_fast.txt'
+    file = true
 }
 
 -- Configure logging
@@ -38,17 +37,5 @@ packets = {
     limit = 100
 }
 
--- Define packet processing
-process = {
-    all_traffic = true,
-    show_year = true
-}
-
--- Configure output plugins
-output = {
-    file = true,
-    show_year = true
-}
-
 -- Include rules
-include = 'rules/local.rules' 
+include = 'config/rules/local.rules' 
