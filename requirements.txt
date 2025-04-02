@@ -1,7 +1,11 @@
-flask>=3.0.0
-flask-socketio>=5.3.0
-pyyaml>=6.0.1
-python-socketio>=5.11.0
-eventlet>=0.35.2
-requests>=2.31.0  # For testing
+flask==2.2.3
+flask_socketio==5.3.3
+python-socketio==5.8.0
+python-engineio==4.4.1
+simple-websocket==0.10.0
+requests==2.28.2
+python-dateutil==2.8.2
+psutil==5.9.4
+colorama==0.4.6
+loguru==0.6.0
 pytest>=8.0.0    # For running tests 

@@ -146,12 +146,52 @@
             color: #666;
             margin-bottom: 10px;
         }
+        .header-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        #reset-button {
+            background-color: #e74a3b;
+            border-color: #e74a3b;
+        }
+        #reset-button:hover {
+            background-color: #d52a1a;
+            border-color: #d52a1a;
+        }
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
     </style>
 </head>
 <body>
     <div class="container-fluid py-4">
-        <h1 class="mb-4">IPS Dashboard</h1>
+        <div class="header-actions">
+            <h1>IPS Dashboard</h1>
+            <div>
+                <button id="reset-button" class="btn btn-danger">
+                    <i class="bx bx-reset"></i> Reset Dashboard
+                </button>
+            </div>
+        </div>
         <div class="refresh-timer">Last updated: <span id="last-update">Now</span></div>
+        
+        <!-- Toast for notifications -->
+        <div class="toast-container">
+            <div id="toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="toast-header">
+                    <strong class="me-auto">IPS Dashboard</strong>
+                    <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+                <div class="toast-body" id="toast-message">
+                    Dashboard has been reset successfully.
+                </div>
+            </div>
+        </div>
         
         <!-- Statistics Cards -->
         <div class="row mb-4">
@@ -470,6 +510,34 @@
                 });
             }
         }
+        
+        // Initialize toast
+        const toast = new bootstrap.Toast(document.getElementById('toast'));
+        
+        // Reset button event listener
+        document.getElementById('reset-button').addEventListener('click', function() {
+            fetch('/api/reset', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('toast-message').textContent = data.message;
+                toast.show();
+                fetch('/api/stats')
+                    .then(response => response.json())
+                    .then(data => {
+                        updateStats(data);
+                    });
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('toast-message').textContent = 'Failed to reset dashboard';
+                toast.show();
+            });
+        });
         
         // Listen for alerts
         socket.on('alert', function(data) {

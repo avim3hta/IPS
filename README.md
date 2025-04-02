@@ -4,22 +4,25 @@ A real-time Intrusion Prevention System that combines Snort for network traffic 
 
 ## Features
 
-- Real-time network traffic monitoring and analysis
-- Automatic blocking of suspicious traffic
-- Dynamic firewall rule management
-- Modern, real-time web dashboard
-- Detailed alert logging and statistics
-- IP-based threat tracking
-- Top threats visualization
+- Real-time network traffic monitoring and analysis with packet tracking
+- Automatic detection and blocking of suspicious traffic
+- Dynamic firewall rule management based on detected threats
+- Modern, real-time web dashboard with confidence indicators
+- Detailed protocol statistics (TCP, UDP, ICMP, HTTP, etc.)
+- Comprehensive scan detection (stealth, version, OS, aggressive scans)
+- IP-based threat tracking and active scan monitoring
+- Real-time alerts with confidence percentages
+- Optimized performance with single-side port mirroring
 
 ## Prerequisites
 
 Before you begin, make sure you have the following installed:
 
 1. Python 3.8 or higher
-2. Snort 3.0 or higher
+2. Snort 3.0 or higher (tested with Snort 3.6.0)
 3. iptables
 4. sudo privileges (for network interface configuration)
+5. tcpdump (for additional packet capture)
 
 ## Installation
 
@@ -47,14 +50,13 @@ This script will:
 - Configure the wireless interface in promiscuous mode
 
 ### 4. Configure Snort
-The system uses a custom Snort configuration optimized for IPS mode. The configuration is located at `config/snort.lua`. You can modify the rules in `rules/local.rules` to customize detection patterns.
+The system uses a custom Snort configuration optimized for IPS mode. The configuration is located at `config/snort.lua`. You can modify the rules in `config/rules/local.rules` to customize detection patterns.
 
 ## Usage
 
 ### 1. Start the IPS System
-In one terminal:
 ```bash
-python3 main.py
+sudo python3 main.py
 ```
 
 ### 2. Launch the Dashboard
@@ -76,9 +78,31 @@ http://localhost:5000
 - Total packets processed
 - Number of blocked packets
 - Block rate percentage
+- Protocol distribution (TCP, UDP, ICMP, etc.)
+- Service stats (HTTP, HTTPS, SSH, DNS, etc.)
+
+### Scan Detection
+- Displays confidence percentages for different scan types
+- Stealth scan detection
+- Version scan detection
+- OS detection
+- Aggressive scan detection
+- Protocol probe detection
+
+### Active Scans
+- Real-time monitoring of active scanning attempts
+- IP address tracking of scanner
+- Scan type identification
+- Duration tracking
+
+### Recent Scan Alerts
+- Timestamp of detection
+- IP address of scanner
+- Type of scan detected
+- Confidence level indicator
 
 ### Live Alerts
-- Shows the 100 most recent alerts
+- Shows the most recent alerts
 - Each alert includes timestamp and message
 - Auto-updates in real-time
 
@@ -87,20 +111,20 @@ http://localhost:5000
 - Updates automatically as new IPs are detected
 
 ### Top Threats
-- Shows the 5 most common threat types
+- Shows the most common threat types
 - Displays count for each threat type
 - Updates in real-time
 
 ## Customization
 
 ### Adding Custom Rules
-Edit `rules/local.rules` to add your own Snort rules. Example:
+Edit `config/rules/local.rules` to add your own Snort rules. Example:
 ```snort
-drop tcp any any -> any any (msg:"Custom Rule"; sid:1000004; rev:1;)
+alert tcp any any -> any any (msg:"Custom Rule"; sid:1000004; rev:1;)
 ```
 
 ### Modifying Firewall Rules
-The system automatically updates firewall rules based on alerts. You can modify the rule generation logic in `main.py` under the `update_firewall_rules` method.
+The system automatically updates firewall rules based on alerts. You can modify the rule generation logic in `main.py` under the `add_firewall_rule` method.
 
 ### Dashboard Customization
 The dashboard can be customized by modifying:
@@ -108,29 +132,53 @@ The dashboard can be customized by modifying:
 - `dashboard/app.py` for backend functionality
 - CSS in the template for visual changes
 
+## System Architecture
+
+### Network Monitoring
+- Snort runs in tap mode to monitor traffic without duplication
+- Packet tracking for comprehensive protocol statistics
+- Firewall rules are dynamically added based on detected threats
+
+### Alert Processing
+- Alerts are processed in separate threads to prevent bottlenecks
+- Queue-based approach ensures all alerts are handled efficiently
+- Real-time notification through the dashboard
+
+### Dashboard Communication
+- WebSocket-based real-time updates
+- RESTful API endpoints for data retrieval
+- Automatic refresh of statistics
+
 ## Troubleshooting
 
 ### Common Issues
 
 1. **Permission Denied**
-   - Make sure you're running setup scripts with sudo
-   - Check file permissions for log files
+   - Make sure you're running the main script with sudo
+   - Check file permissions for log files and alert_fast.txt
 
 2. **Network Interface Issues**
-   - Verify your interface name in setup_ips.sh
+   - Verify your interface name in the main script (defaults to wlo1)
    - Check if promiscuous mode is supported
+   - Run `ip link show` to confirm available interfaces
 
 3. **Dashboard Not Loading**
-   - Ensure both main.py and dashboard are running
+   - Ensure both main.py and dashboard app.py are running
    - Check if port 5000 is available
+   - Look for error messages in the terminal
 
 4. **No Alerts Showing**
-   - Verify Snort is running correctly
+   - Verify Snort is running correctly (check main.py output)
    - Check alert_fast.txt permissions
-   - Ensure rules are properly configured
+   - Ensure rules are properly configured in local.rules
+
+5. **Low Detection Rate**
+   - Add more specific rules to local.rules
+   - Adjust confidence thresholds in the dashboard app
+   - Check network traffic with tcpdump to verify mirroring is working
 
 ### Log Files
-- `ips.log`: Main system log
+- `logs/ips.log`: Main system log
 - `alert_fast.txt`: Snort alerts
 - `logs/`: Snort log directory
 

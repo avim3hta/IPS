@@ -128,4 +128,36 @@ alert tcp any any -> any any (msg:"NMAP OS fingerprinting attempt"; flow:statele
 alert tcp any any -> any any (msg:"NMAP version scan detected"; flow:to_server; flags:A; window:1024; sid:1000013;)
 alert tcp any any -> any any (msg:"NMAP NULL scan detected"; flags:0; sid:1000014;)
 alert tcp any any -> any any (msg:"NMAP FIN scan detected"; flags:F; sid:1000015;)
-alert tcp any any -> any any (msg:"NMAP XMAS scan detected"; flags:FPU; sid:1000016;) 
+alert tcp any any -> any any (msg:"NMAP XMAS scan detected"; flags:FPU; sid:1000016;)
+
+# Test alert rule
+alert any any any -> any any (msg:"Test Alert"; sid:1000001; rev:1;)
+
+# TCP traffic rules
+alert tcp any any -> any any (msg:"TCP Connection"; sid:1000101; rev:1;)
+alert tcp any any -> any 80 (msg:"HTTP Traffic"; sid:1000102; rev:1;)
+alert tcp any any -> any 443 (msg:"HTTPS Traffic"; sid:1000103; rev:1;)
+alert tcp any any -> any 22 (msg:"SSH Traffic"; sid:1000104; rev:1;)
+alert tcp any any -> any 21 (msg:"FTP Traffic"; sid:1000105; rev:1;)
+
+# UDP traffic rules
+alert udp any any -> any any (msg:"UDP Connection"; sid:1000201; rev:1;)
+alert udp any any -> any 53 (msg:"DNS Traffic"; sid:1000202; rev:1;)
+
+# ICMP traffic rules
+alert icmp any any -> any any (msg:"ICMP Packet"; sid:1000301; rev:1;)
+
+# Scan detection rules
+alert tcp any any -> any any (flags:S; msg:"Stealth Scan Detected"; sid:1000401; rev:1;)
+alert tcp any any -> any any (flags:FPU; msg:"XMAS Scan Detected"; sid:1000402; rev:1;)
+alert tcp any any -> any any (flags:F; msg:"FIN Scan Detected"; sid:1000403; rev:1;)
+alert tcp any any -> any any (flags:0; msg:"NULL Scan Detected"; sid:1000404; rev:1;)
+alert any any any -> any any (msg:"Service Version Scan Detected"; sid:1000405; rev:1;)
+alert any any any -> any any (msg:"OS Detection Scan Detected"; sid:1000406; rev:1;)
+alert any any any -> any any (msg:"Aggressive Scan Detected"; sid:1000407; rev:1;)
+
+# HTTP specific rules
+alert tcp any any -> any 80 (content:"GET"; msg:"HTTP GET Request"; sid:1000501; rev:1;)
+alert tcp any any -> any 80 (content:"POST"; msg:"HTTP POST Request"; sid:1000502; rev:1;)
+alert tcp any any -> any 80 (content:"PUT"; msg:"HTTP PUT Request"; sid:1000503; rev:1;)
+alert tcp any any -> any 80 (content:"DELETE"; msg:"HTTP DELETE Request"; sid:1000504; rev:1;) 
