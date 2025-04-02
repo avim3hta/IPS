@@ -90,11 +90,68 @@
             color: #858796;
             font-size: 0.9em;
         }
+        .protocol-stats {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .protocol-stat {
+            flex: 1;
+            min-width: 120px;
+            text-align: center;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .protocol-stat.tcp {
+            background-color: #e6f7ff;
+            border: 1px solid #1890ff;
+        }
+        .protocol-stat.udp {
+            background-color: #f6ffed;
+            border: 1px solid #52c41a;
+        }
+        .protocol-stat.icmp {
+            background-color: #fff2e8;
+            border: 1px solid #fa8c16;
+        }
+        .protocol-stat.http {
+            background-color: #f9f0ff;
+            border: 1px solid #722ed1;
+        }
+        .protocol-stat.ssh {
+            background-color: #fcffe6;
+            border: 1px solid #d3f261;
+        }
+        .protocol-stat.ftp {
+            background-color: #fff0f6;
+            border: 1px solid #eb2f96;
+        }
+        .protocol-stat.other {
+            background-color: #f0f2f5;
+            border: 1px solid #8c8c8c;
+        }
+        .protocol-count {
+            font-size: 1.8rem;
+            font-weight: bold;
+        }
+        .protocol-name {
+            font-size: 1rem;
+            margin-top: 5px;
+            text-transform: uppercase;
+        }
+        .refresh-timer {
+            text-align: right;
+            font-size: 0.8rem;
+            color: #666;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
     <div class="container-fluid py-4">
         <h1 class="mb-4">IPS Dashboard</h1>
+        <div class="refresh-timer">Last updated: <span id="last-update">Now</span></div>
         
         <!-- Statistics Cards -->
         <div class="row mb-4">
@@ -119,6 +176,49 @@
                     <div class="card-body">
                         <h5 class="card-title">Block Rate</h5>
                         <h2 id="block-rate">0%</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Protocol Statistics -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Protocol Statistics</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="protocol-stats" class="protocol-stats">
+                            <div class="protocol-stat tcp">
+                                <div id="tcp-count" class="protocol-count">0</div>
+                                <div class="protocol-name">TCP</div>
+                            </div>
+                            <div class="protocol-stat udp">
+                                <div id="udp-count" class="protocol-count">0</div>
+                                <div class="protocol-name">UDP</div>
+                            </div>
+                            <div class="protocol-stat icmp">
+                                <div id="icmp-count" class="protocol-count">0</div>
+                                <div class="protocol-name">ICMP</div>
+                            </div>
+                            <div class="protocol-stat http">
+                                <div id="http-count" class="protocol-count">0</div>
+                                <div class="protocol-name">HTTP</div>
+                            </div>
+                            <div class="protocol-stat ssh">
+                                <div id="ssh-count" class="protocol-count">0</div>
+                                <div class="protocol-name">SSH</div>
+                            </div>
+                            <div class="protocol-stat ftp">
+                                <div id="ftp-count" class="protocol-count">0</div>
+                                <div class="protocol-name">FTP</div>
+                            </div>
+                            <div class="protocol-stat other">
+                                <div id="other-count" class="protocol-count">0</div>
+                                <div class="protocol-name">Other</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -236,6 +336,13 @@
             document.getElementById('total-packets').textContent = data.total_packets;
             document.getElementById('blocked-packets').textContent = data.blocked_packets;
             document.getElementById('block-rate').textContent = data.block_rate.toFixed(2) + '%';
+            document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+            
+            // Update protocol stats
+            const protocols = ['tcp', 'udp', 'icmp', 'http', 'ssh', 'ftp', 'other'];
+            protocols.forEach(protocol => {
+                document.getElementById(`${protocol}-count`).textContent = data.protocol_stats[protocol];
+            });
             
             // Update scan confidence percentages
             const scanTypes = ['stealth_scan', 'version_scan', 'os_scan', 'aggressive_scan', 'protocol_probes'];
@@ -248,7 +355,7 @@
                 confidenceElement.className = 'confidence';
                 if (confidence >= 80) {
                     confidenceElement.classList.add('high');
-                } else if (confidence >= 50) {
+                } else if (confidence >= 40) {
                     confidenceElement.classList.add('medium');
                 } else {
                     confidenceElement.classList.add('low');
@@ -256,88 +363,149 @@
             });
             
             // Update scan duration
-            document.getElementById('scan-duration').textContent = data.scan_duration.toFixed(1);
-            
-            // Update alerts
-            const alertsDiv = document.getElementById('alerts');
-            alertsDiv.innerHTML = '';
-            data.alerts.forEach(alert => {
-                const alertElement = document.createElement('div');
-                alertElement.className = 'alert alert-warning';
-                alertElement.textContent = alert;
-                alertsDiv.appendChild(alertElement);
-            });
-            
-            // Update recent IPs
-            const ipsDiv = document.getElementById('recent-ips');
-            ipsDiv.innerHTML = '';
-            data.recent_ips.forEach(ip => {
-                const ipElement = document.createElement('div');
-                ipElement.className = 'ip-item';
-                ipElement.textContent = ip;
-                ipsDiv.appendChild(ipElement);
-            });
-            
-            // Update top threats
-            const threatsDiv = document.getElementById('top-threats');
-            threatsDiv.innerHTML = '';
-            data.top_threats.forEach(threat => {
-                const threatElement = document.createElement('div');
-                threatElement.className = 'ip-item';
-                threatElement.textContent = threat;
-                threatsDiv.appendChild(threatElement);
-            });
+            document.getElementById('scan-duration').textContent = data.scan_duration;
             
             // Update active scans
-            const activeScansDiv = document.getElementById('active-scans');
-            activeScansDiv.innerHTML = '';
-            Object.entries(data.active_scans).forEach(([ip, scan]) => {
-                const scanElement = document.createElement('div');
-                scanElement.className = 'scan-item';
-                scanElement.innerHTML = `
-                    <div>
-                        <span class="ip">${ip}</span>
-                        <span class="type">${scan.type}</span>
-                    </div>
-                    <div>
-                        <span class="confidence">${scan.count} attempts</span>
-                        <span class="timestamp">${Math.round((time.time() - scan.start_time))}s ago</span>
-                    </div>
-                `;
-                activeScansDiv.appendChild(scanElement);
-            });
+            const activeScansElement = document.getElementById('active-scans');
+            activeScansElement.innerHTML = '';
             
-            // Update scan alerts
-            const scanAlertsDiv = document.getElementById('scan-alerts');
-            scanAlertsDiv.innerHTML = '';
-            data.scan_alerts.forEach(alert => {
-                const alertElement = document.createElement('div');
-                alertElement.className = 'scan-item';
-                alertElement.innerHTML = `
-                    <div>
-                        <span class="ip">${alert.ip}</span>
-                        <span class="type">${alert.type}</span>
-                    </div>
-                    <div>
-                        <span class="confidence">${alert.confidence.toFixed(1)}%</span>
-                        <span class="timestamp">${alert.timestamp}</span>
-                    </div>
-                `;
-                scanAlertsDiv.appendChild(alertElement);
-            });
+            const activeScanEntries = Object.entries(data.active_scans);
+            if (activeScanEntries.length === 0) {
+                activeScansElement.innerHTML = '<div class="text-center text-muted">No active scans detected</div>';
+            } else {
+                activeScanEntries.forEach(([ip, scanData]) => {
+                    const scanItem = document.createElement('div');
+                    scanItem.className = 'scan-item';
+                    scanItem.innerHTML = `
+                        <div>
+                            <span class="ip">${ip}</span>
+                            <span class="type">${scanData.type.replace('_', ' ')}</span>
+                        </div>
+                        <div>
+                            <span class="badge bg-primary">${scanData.count} packets</span>
+                        </div>
+                    `;
+                    activeScansElement.appendChild(scanItem);
+                });
+            }
+            
+            // Update recent scan alerts
+            const scanAlertsElement = document.getElementById('scan-alerts');
+            scanAlertsElement.innerHTML = '';
+            
+            if (data.scan_alerts.length === 0) {
+                scanAlertsElement.innerHTML = '<div class="text-center text-muted">No scan alerts detected</div>';
+            } else {
+                data.scan_alerts.slice().reverse().forEach(alert => {
+                    const alertItem = document.createElement('div');
+                    alertItem.className = 'scan-item';
+                    let confidenceClass = 'bg-success';
+                    if (alert.confidence >= 80) {
+                        confidenceClass = 'bg-danger';
+                    } else if (alert.confidence >= 40) {
+                        confidenceClass = 'bg-warning';
+                    }
+                    
+                    alertItem.innerHTML = `
+                        <div>
+                            <div><span class="ip">${alert.ip}</span> - <span class="type">${alert.type.replace('_', ' ')}</span></div>
+                            <div class="timestamp">${alert.timestamp}</div>
+                        </div>
+                        <span class="badge ${confidenceClass}">${alert.confidence.toFixed(1)}% confidence</span>
+                    `;
+                    scanAlertsElement.appendChild(alertItem);
+                });
+            }
+            
+            // Update recent alerts
+            const alertsElement = document.getElementById('alerts');
+            alertsElement.innerHTML = '';
+            
+            if (data.alerts.length === 0) {
+                alertsElement.innerHTML = '<div class="text-center text-muted">No alerts detected</div>';
+            } else {
+                data.alerts.slice().reverse().forEach(alert => {
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = 'alert alert-secondary';
+                    alertDiv.textContent = alert;
+                    alertsElement.appendChild(alertDiv);
+                });
+            }
+            
+            // Update recent IPs
+            const recentIpsElement = document.getElementById('recent-ips');
+            recentIpsElement.innerHTML = '';
+            
+            if (data.recent_ips.length === 0) {
+                recentIpsElement.innerHTML = '<div class="text-center text-muted">No IPs detected</div>';
+            } else {
+                data.recent_ips.forEach(ip => {
+                    const ipDiv = document.createElement('div');
+                    ipDiv.className = 'ip-item';
+                    ipDiv.textContent = ip;
+                    recentIpsElement.appendChild(ipDiv);
+                });
+            }
+            
+            // Update top threats
+            const topThreatsElement = document.getElementById('top-threats');
+            topThreatsElement.innerHTML = '';
+            
+            if (data.top_threats.length === 0) {
+                topThreatsElement.innerHTML = '<div class="text-center text-muted">No threats detected</div>';
+            } else {
+                data.top_threats.forEach(([threat, count]) => {
+                    const threatDiv = document.createElement('div');
+                    threatDiv.className = 'mb-3';
+                    threatDiv.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span>${threat}</span>
+                            <span class="badge bg-danger">${count}</span>
+                        </div>
+                        <div class="progress">
+                            <div class="progress-bar bg-danger" role="progressbar" style="width: ${Math.min(count * 5, 100)}%"></div>
+                        </div>
+                    `;
+                    topThreatsElement.appendChild(threatDiv);
+                });
+            }
         }
         
-        // Initial stats update
+        // Listen for alerts
+        socket.on('alert', function(data) {
+            // Add new alert to the existing list
+            const alertsElement = document.getElementById('alerts');
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-secondary';
+            alertDiv.textContent = data.alert;
+            alertsElement.insertBefore(alertDiv, alertsElement.firstChild);
+            
+            // Only keep the last 100 alerts
+            if (alertsElement.children.length > 100) {
+                alertsElement.removeChild(alertsElement.lastChild);
+            }
+        });
+        
+        // Listen for stats updates
+        socket.on('stats_update', function(data) {
+            updateStats(data);
+        });
+        
+        // Initial load of stats
         fetch('/api/stats')
             .then(response => response.json())
-            .then(data => updateStats(data));
+            .then(data => {
+                updateStats(data);
+            });
         
-        // Listen for real-time updates
-        socket.on('alert', function(data) {
+        // Refresh stats every 5 seconds
+        setInterval(function() {
             fetch('/api/stats')
                 .then(response => response.json())
-                .then(data => updateStats(data));
-        });
+                .then(data => {
+                    updateStats(data);
+                });
+        }, 5000);
     </script>
 </body>
 </html> 
