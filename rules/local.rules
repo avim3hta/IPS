@@ -1,0 +1,3 @@
+# Local Snort rules
+alert tcp any any -> any any (msg:"Suspicious TCP Connection"; sid:1000001;)
+alert udp any any -> any any (msg:"Suspicious UDP Connection"; sid:1000002;)

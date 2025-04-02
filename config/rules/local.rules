@@ -1,0 +1,58 @@
+# Local rules file
+# Basic port scan detection
+alert tcp any any -> $HOME_NET any ( \
+    msg:"Port Scan"; \
+    flow:stateless; \
+    flags:S; \
+    threshold:type both,track by_src,count 10,seconds 60; \
+    sid:1000001; \
+    rev:1; \
+)
+
+# SYN flood detection
+alert tcp any any -> $HOME_NET any ( \
+    msg:"Possible SYN Flood"; \
+    flow:stateless; \
+    flags:S; \
+    threshold:type both,track by_src,count 100,seconds 10; \
+    sid:1000002; \
+    rev:1; \
+)
+
+# ICMP flood detection
+alert icmp any any -> $HOME_NET any ( \
+    msg:"ICMP Flood"; \
+    threshold:type both,track by_src,count 100,seconds 10; \
+    sid:1000003; \
+    rev:1; \
+)
+
+# Suspicious HTTP requests
+alert tcp any any -> $HOME_NET $HTTP_PORTS ( \
+    msg:"Suspicious HTTP Request"; \
+    flow:to_server,established; \
+    http_uri; \
+    content:"/admin/"; \
+    sid:1000004; \
+    rev:1; \
+)
+
+# Suspicious FTP login attempts
+alert tcp any any -> $HOME_NET $FTP_PORTS ( \
+    msg:"Multiple Failed FTP Login Attempts"; \
+    flow:to_server,established; \
+    content:"530 Login incorrect"; \
+    threshold:type both,track by_src,count 5,seconds 60; \
+    sid:1000005; \
+    rev:1; \
+)
+
+# SSH brute force detection
+alert tcp any any -> $HOME_NET $SSH_PORTS ( \
+    msg:"SSH Brute Force Attempt"; \
+    flow:to_server,established; \
+    content:"SSH-"; \
+    threshold:type both,track by_src,count 5,seconds 60; \
+    sid:1000006; \
+    rev:1; \
+) 
