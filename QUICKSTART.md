@@ -78,7 +78,7 @@ alert tcp any any -> any 80 (content:"GET /admin"; msg:"Admin Page Access Attemp
 - **Scan Detection**: Displays confidence levels for different scan types
 - **Active Scans**: Shows current ongoing scanning activity
 - **Recent Alerts**: Lists the latest detected threats
-- **Top Threats**: Summarizes most common attack types
+- **Top THREATS**: Summarizes most common attack types
 
 ## Troubleshooting Tips
 
