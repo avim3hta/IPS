@@ -1,68 +1,60 @@
-# Firewall Configuration YAML File
 rules:
-  # Allow outgoing HTTP/HTTPS
-  - id: 1
-    action: allow
-    protocol: tcp
-    destination_port: 80
-    priority: 100
-    description: "Allow outgoing HTTP traffic"
-    enabled: true
-
-  - id: 2
-    action: allow
-    protocol: tcp
-    destination_port: 443
-    priority: 100
-    description: "Allow outgoing HTTPS traffic"
-    enabled: true
-
-  # Allow DNS queries
-  - id: 3
-    action: allow
-    protocol: udp
-    destination_port: 53
-    priority: 100
-    description: "Allow DNS queries"
-    enabled: true
-
-  # Allow SSH
-  - id: 4
-    action: allow
-    protocol: tcp
-    destination_port: 22
-    priority: 100
-    description: "Allow SSH connections"
-    enabled: true
-
-  # Allow ICMP for diagnostics
-  - id: 5
-    action: allow
-    protocol: icmp
-    priority: 90
-    description: "Allow ICMP traffic for diagnostics"
-    enabled: true
-
-  # Allow established connections
-  - id: 6
-    action: allow
-    protocol: any
-    priority: 80
-    description: "Allow established connections"
-    enabled: true
-
-  # Block known malicious IP addresses
-  - id: 7
-    action: deny
-    source_ip: "185.143.223.0/24"
-    priority: 200
-    description: "Block known malicious IP range"
-    enabled: true
-
-  # Default deny rule (lowest priority)
-  - id: 8
-    action: deny
-    protocol: any
-    priority: 0
-    description: "Default deny all traffic"
-    enabled: true
+- id: 1
+  action: allow
+  protocol: tcp
+  destination_port: 80
+  priority: 100
+  description: Allow outgoing HTTP traffic
+  enabled: true
+- id: 2
+  action: allow
+  protocol: tcp
+  destination_port: 443
+  priority: 100
+  description: Allow outgoing HTTPS traffic
+  enabled: true
+- id: 3
+  action: allow
+  protocol: udp
+  destination_port: 53
+  priority: 100
+  description: Allow DNS queries
+  enabled: true
+- id: 4
+  action: allow
+  protocol: tcp
+  destination_port: 22
+  priority: 100
+  description: Allow SSH connections
+  enabled: true
+- id: 5
+  action: allow
+  protocol: icmp
+  priority: 90
+  description: Allow ICMP traffic for diagnostics
+  enabled: true
+- id: 6
+  action: allow
+  protocol: any
+  priority: 80
+  description: Allow established connections
+  enabled: true
+- id: 7
+  action: deny
+  source_ip: 185.143.223.0/24
+  priority: 200
+  description: Block known malicious IP range
+  enabled: true
+- id: 8
+  action: deny
+  protocol: any
+  priority: 0
+  description: Default deny all traffic
+  enabled: true
+- id: 9
+  action: deny
+  protocol: any
+  destination_ip: 216.58.203.14
+  priority: 250
+  description: Block YouTube traffic (toggleable)
+  enabled: true

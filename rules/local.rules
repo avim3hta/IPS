@@ -24,3 +24,8 @@ alert udp any any -> any 53 (msg:"DNS (UDP) Traffic"; sid:1000012; rev:1;)
 alert tcp any any -> any any (msg:"HTTP Protocol"; content:"GET"; sid:1000013; rev:1;)
 alert tcp any any -> any any (msg:"HTTP Protocol"; content:"POST"; sid:1000014; rev:1;)
 alert tcp any any -> any any (msg:"HTTP Protocol"; content:"HTTP/1.1"; sid:1000015; rev:1;)
+
+# YouTube traffic detection (simplified format)
+alert ip any any -> 216.58.203.14 any (msg:"YouTube Blocked"; sid:2000001; rev:1;)
+alert ip any any -> 172.217.0.0/16 any (msg:"YouTube Blocked"; sid:2000002; rev:1;)
+alert tcp any any -> any 443 (msg:"YouTube HTTPS"; content:"youtube"; nocase; sid:2000003; rev:1;)

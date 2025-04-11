@@ -173,6 +173,9 @@
         <div class="header-actions">
             <h1>IPS Dashboard</h1>
             <div>
+                <button id="youtube-toggle" class="btn btn-primary me-2">
+                    <i class="bx bx-block"></i> <span id="youtube-toggle-text">Toggle YouTube Blocking</span>
+                </button>
                 <button id="reset-button" class="btn btn-danger">
                     <i class="bx bx-reset"></i> Reset Dashboard
                 </button>
@@ -264,70 +267,6 @@
             </div>
         </div>
 
-        <!-- Scan Detection Section -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Scan Detection</h5>
-                        <div id="scan-stats">
-                            <div class="scan-type">
-                                <span>Stealth Scan:</span>
-                                <span id="stealth-scan-confidence" class="confidence">0%</span>
-                            </div>
-                            <div class="scan-type">
-                                <span>Version Scan:</span>
-                                <span id="version-scan-confidence" class="confidence">0%</span>
-                            </div>
-                            <div class="scan-type">
-                                <span>OS Detection:</span>
-                                <span id="os-scan-confidence" class="confidence">0%</span>
-                            </div>
-                            <div class="scan-type">
-                                <span>Aggressive Scan:</span>
-                                <span id="aggressive-scan-confidence" class="confidence">0%</span>
-                            </div>
-                            <div class="scan-type">
-                                <span>Protocol Probes:</span>
-                                <span id="protocol-probes-confidence" class="confidence">0%</span>
-                            </div>
-                        </div>
-                        <div class="mt-3">
-                            <strong>Scan Duration:</strong> <span id="scan-duration">0</span> seconds
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Active Scans Section -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">Active Scans</h5>
-                    </div>
-                    <div class="card-body">
-                        <div id="active-scans" class="scan-list"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Scan Alerts Section -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">Recent Scan Alerts</h5>
-                    </div>
-                    <div class="card-body">
-                        <div id="scan-alerts" class="scan-list"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- Main Content -->
         <div class="row">
             <!-- Alerts -->
@@ -384,78 +323,8 @@
                 document.getElementById(`${protocol}-count`).textContent = data.protocol_stats[protocol];
             });
             
-            // Update scan confidence percentages
-            const scanTypes = ['stealth_scan', 'version_scan', 'os_scan', 'aggressive_scan', 'protocol_probes'];
-            scanTypes.forEach((type, index) => {
-                const confidenceElement = document.getElementById(`${type.replace('_', '-')}-confidence`);
-                const confidence = data.scan_stats[type].confidence;
-                confidenceElement.textContent = confidence.toFixed(1) + '%';
-                
-                // Add color coding based on confidence level
-                confidenceElement.className = 'confidence';
-                if (confidence >= 80) {
-                    confidenceElement.classList.add('high');
-                } else if (confidence >= 40) {
-                    confidenceElement.classList.add('medium');
-                } else {
-                    confidenceElement.classList.add('low');
-                }
-            });
-            
-            // Update scan duration
-            document.getElementById('scan-duration').textContent = data.scan_duration;
-            
-            // Update active scans
-            const activeScansElement = document.getElementById('active-scans');
-            activeScansElement.innerHTML = '';
-            
-            const activeScanEntries = Object.entries(data.active_scans);
-            if (activeScanEntries.length === 0) {
-                activeScansElement.innerHTML = '<div class="text-center text-muted">No active scans detected</div>';
-            } else {
-                activeScanEntries.forEach(([ip, scanData]) => {
-                    const scanItem = document.createElement('div');
-                    scanItem.className = 'scan-item';
-                    scanItem.innerHTML = `
-                        <div>
-                            <span class="ip">${ip}</span>
-                            <span class="type">${scanData.type.replace('_', ' ')}</span>
-                        </div>
-                        <div>
-                            <span class="badge bg-primary">${scanData.count} packets</span>
-                        </div>
-                    `;
-                    activeScansElement.appendChild(scanItem);
-                });
-            }
-            
-            // Update recent scan alerts
-            const scanAlertsElement = document.getElementById('scan-alerts');
-            scanAlertsElement.innerHTML = '';
-            
-            if (data.scan_alerts.length === 0) {
-                scanAlertsElement.innerHTML = '<div class="text-center text-muted">No scan alerts detected</div>';
-            } else {
-                data.scan_alerts.slice().reverse().forEach(alert => {
-                    const alertItem = document.createElement('div');
-                    alertItem.className = 'scan-item';
-                    let confidenceClass = 'bg-success';
-                    if (alert.confidence >= 80) {
-                        confidenceClass = 'bg-danger';
-                    } else if (alert.confidence >= 40) {
-                        confidenceClass = 'bg-warning';
-                    }
-                    
-                    alertItem.innerHTML = `
-                        <div>
-                            <div><span class="ip">${alert.ip}</span> - <span class="type">${alert.type.replace('_', ' ')}</span></div>
-                            <div class="timestamp">${alert.timestamp}</div>
-                        </div>
-                        <span class="badge ${confidenceClass}">${alert.confidence.toFixed(1)}% confidence</span>
-                    `;
-                    scanAlertsElement.appendChild(alertItem);
-                });
-            }
+            // Update YouTube blocking status
+            updateYoutubeButtonState(data.youtube_blocked);
             
             // Update recent alerts
             const alertsElement = document.getElementById('alerts');
@@ -483,6 +352,14 @@
                     const ipDiv = document.createElement('div');
                     ipDiv.className = 'ip-item';
                     ipDiv.textContent = ip;
+                    
+                    // Highlight YouTube IPs if blocking is enabled
+                    if (data.youtube_blocked && ip === '216.58.203.14') {
+                        ipDiv.style.color = 'red';
+                        ipDiv.style.fontWeight = 'bold';
+                        ipDiv.textContent += ' (Blocked YouTube)';
+                    }
+                    
                     recentIpsElement.appendChild(ipDiv);
                 });
             }
@@ -511,6 +388,21 @@
             }
         }
         
+        function updateYoutubeButtonState(isBlocked) {
+            const youtubeToggle = document.getElementById('youtube-toggle');
+            const youtubeToggleText = document.getElementById('youtube-toggle-text');
+            
+            if (isBlocked) {
+                youtubeToggle.classList.remove('btn-primary');
+                youtubeToggle.classList.add('btn-danger');
+                youtubeToggleText.textContent = 'Disable YouTube Blocking';
+            } else {
+                youtubeToggle.classList.remove('btn-danger');
+                youtubeToggle.classList.add('btn-primary');
+                youtubeToggleText.textContent = 'Enable YouTube Blocking';
+            }
+        }
+        
         // Initialize toast
         const toast = new bootstrap.Toast(document.getElementById('toast'));
         
@@ -535,6 +427,37 @@
             .catch(error => {
                 console.error('Error:', error);
                 document.getElementById('toast-message').textContent = 'Failed to reset dashboard';
+                toast.show();
+            });
+        });
+        
+        // YouTube toggle button event listener
+        document.getElementById('youtube-toggle').addEventListener('click', function() {
+            const action = this.classList.contains('btn-primary') ? 'enable' : 'disable';
+            
+            fetch('/api/toggle-youtube', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ action: action })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('toast-message').textContent = data.message;
+                toast.show();
+                updateYoutubeButtonState(data.youtube_blocked);
+                
+                // Refresh stats
+                fetch('/api/stats')
+                    .then(response => response.json())
+                    .then(statsData => {
+                        updateStats(statsData);
+                    });
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('toast-message').textContent = 'Failed to toggle YouTube blocking';
                 toast.show();
             });
         });

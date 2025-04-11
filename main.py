@@ -402,6 +402,49 @@ alert tcp any any -> any any (msg:"HTTP Protocol"; content:"HTTP/1.1"; sid:10000
         """Get the current network statistics"""
         return self.packet_tracker.get_stats()
 
+    def start_snort(self):
+        """Start Snort IDS/IPS service."""
+        try:
+            # Construct the Snort command - Use -D to run as daemon instead of -K
+            cmd = f"sudo snort -c {self.snort_config} -i wlo1 -D --warn-all"
+            logger.info(f"Starting Snort...")
+            logger.info(f"Command: {cmd}")
+            
+            # Start Snort in a new process
+            self.snort_process = subprocess.Popen(
+                cmd.split(),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True
+            )
+            
+            # Start a separate thread to monitor Snort's output
+            self.snort_output_thread = threading.Thread(target=self._monitor_snort_output, daemon=True)
+            self.snort_output_thread.start()
+            
+            return True
+        except Exception as e:
+            logger.error(f"Failed to start Snort: {e}")
+            return False
+
+    def _monitor_snort_output(self):
+        """Monitor Snort's output and process alerts"""
+        while self.snort_process.poll() is None:
+            try:
+                line = self.snort_process.stdout.readline().strip()
+                if line:
+                    # Process Snort output
+                    self._process_snort_output(line)
+            except Exception as e:
+                logger.error(f"Error monitoring Snort output: {e}")
+            time.sleep(0.1)
+
+    def _process_snort_output(self, line):
+        """Process a line of Snort output and update alerts"""
+        # Implement the logic to process Snort output and update alerts
+        # This is a placeholder and should be replaced with the actual implementation
+        logger.info(f"Snort output: {line}")
+
     def start(self):
         """Start the IPS"""
         logger.info("Starting IPS...")
@@ -411,21 +454,18 @@ alert tcp any any -> any any (msg:"HTTP Protocol"; content:"HTTP/1.1"; sid:10000
         
         # Start Snort in passive mode
         try:
-            snort_cmd = ['sudo', 'snort', '-c', str(self.snort_config), '-i', 'wlo1', '--warn-all']
-            logger.info("Starting Snort...")
-            logger.info(f"Command: {' '.join(snort_cmd)}")
-            
-            # Start alert processing thread
-            alert_processor = threading.Thread(target=self.process_alerts, daemon=True)
-            alert_processor.start()
-            
-            # Start alert monitoring thread
-            alert_monitor = threading.Thread(target=self.monitor_alerts, daemon=True)
-            alert_monitor.start()
-            
-            # Run Snort
-            subprocess.run(snort_cmd)
-            
+            if self.start_snort():
+                # Start alert processing thread
+                alert_processor = threading.Thread(target=self.process_alerts, daemon=True)
+                alert_processor.start()
+                
+                # Start alert monitoring thread
+                alert_monitor = threading.Thread(target=self.monitor_alerts, daemon=True)
+                alert_monitor.start()
+                
+                # Run Snort
+                self.snort_process.wait()
+                
         except KeyboardInterrupt:
             logger.info("Stopping IPS...")
             self.alert_queue.put(None)
